@@ -17,7 +17,7 @@ const char* password = "uptotheelbow";
 WiFiServer server(80);
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   delay(10);
 
   // prepare GPIO2
@@ -47,7 +47,26 @@ void setup() {
   Serial.println(WiFi.localIP());
 }
 
+
 void loop() {
+  char serialInput[64];
+  if (Serial.available()) {
+    int characters_received = Serial.readBytesUntil('\n', serialInput, sizeof(serialInput));
+    if (characters_received > 0) {
+      switch (serialInput[0]) {
+        case 'u':
+          Serial.println("o;1:1.0,2:1.5,10:0.5");
+        break;
+        default:
+        //Nothing we can do, nowhere to log the problem.
+        break;
+      }
+    }
+  }
+  delay(2000);  
+}
+
+void loop2() {
   // Check if a client has connected
   WiFiClient client = server.available();
   if (!client) {
