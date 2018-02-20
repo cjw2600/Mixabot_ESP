@@ -6,8 +6,12 @@
 
 #include <ESP8266WiFi.h>
 
-const char* ssid = "BG_Mixed";
-const char* password = "uptotheelbow";
+enum {
+  SSID_MAX_LENGTH           = 33,//32 characters plus terminator
+  WPA2_MAX_PASSWORD_LENGTH  = 64,//63 characters plus terminator
+};
+char ssid[SSID_MAX_LENGTH];
+char password[WPA2_MAX_PASSWORD_LENGTH];
 
 // Create an instance of the server
 // specify the port to listen on as an argument
@@ -15,16 +19,66 @@ WiFiServer server(80);
 
 void setup() {
   Serial.begin(9600);
-  delay(10);
+  delay(1000);
 
   // prepare GPIO2
   pinMode(2, OUTPUT);
   digitalWrite(2, 0);
+  bool startup_received = false;
+  bool ssid_received = false;
+  bool handshake_complete = false;
+  for (;; handshake_complete == false) {
+    //Startup... waiting for the UNO
+
+    //Send startup message
+    if (startup_received == false) {
+      Serial.print("startup\n");
+      delay(1000);
+    }
+    
+    char serial_input[128];
+    memset(serial_input, 0, sizeof(serial_input));
+    int characters_received = Serial.readBytesUntil('\n', serial_input, sizeof(serial_input));
+    if (characters_received > 0) {
+      //look for an echo
+      int compare = strncmp(serial_input, "startup", sizeof("startup") - 1);
+      if (0 == compare) {
+        Serial.print("1");
+        startup_received = true;
+      } else if (startup_received && !ssid_received) {
+        Serial.print("2");
+        strncpy(ssid, serial_input, sizeof(ssid));
+        ssid_received = true;
+      } else if (ssid_received) {
+        Serial.print("3");
+        strncpy(password, serial_input, sizeof(password));
+        Serial.print(" ESP got credentials!\n");
+        Serial.print(ssid);
+        Serial.print("\n");
+        Serial.print(password);
+        Serial.print("\n");
+        Serial.flush();
+        handshake_complete = true;
+        break;
+      }
+    }
+  }
   
+  //Trim the newline character from the end of ssid and password
+  char * newline = strchr(ssid, '\n');
+  if (newline) {
+    *newline = '\0';//Replace with a terminator
+  }
+  newline = strchr(password, '\n');
+  if (newline) {
+    *newline = '\0';//Replace with a terminator
+  }
   // Connect to WiFi network
   Serial.println();
   Serial.println();
+  
   Serial.print("Connecting to ");
+  
   Serial.println(ssid);
   
   WiFi.begin(ssid, password);
